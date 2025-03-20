@@ -1,10 +1,10 @@
 <?php
-
 namespace App\Services;
 
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class GeminiService
 {
@@ -78,5 +78,36 @@ class GeminiService
                 ]
             ]
         ]);
+    }
+
+    /**
+     * Mengambil text response dari hasil API.
+     *
+     * @param array $response
+     * @return string
+     */
+    public function extractResponseText(array $response): string
+    {
+        // Ambil string JSON mentah dari response
+        $rawContent = $response['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+        // Decode JSON menjadi array
+        $decodedContent = json_decode($rawContent, true);
+        
+        $text = '';
+
+        if (isset($decodedContent['response'])) {
+            $text .= $decodedContent['response'];
+        }
+
+        if (isset($decodedContent['paragraph'])) {
+            // Jika sudah ada data di $text, pisahkan dengan newline
+            $text .= $text ? "\n\n" . $decodedContent['paragraph'] : $decodedContent['paragraph'];
+        }
+
+        if (!$text) {
+            $text = 'No response';
+        }
+        // Konversi markdown ke HTML menggunakan Str::markdown
+        return Str::markdown($text);
     }
 }

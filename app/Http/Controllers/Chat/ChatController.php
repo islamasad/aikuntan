@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Chat;
 
 use App\Http\Controllers\Controller;
@@ -26,37 +25,20 @@ class ChatController extends Controller
     public function ask(Request $request)
     {
         $request->validate(['prompt' => 'required|string']);
-        $prompt = $request->prompt;
-        $context = $this->detectContext($prompt);
-        $isAccounting = $context === 'accounting';
 
-        // Simpan konteks di session
-        session()->put('current_context', $isAccounting ? 'accounting' : 'general');
-
-        \Log::channel('gemini')->info('Context detected', [
-            'original_prompt' => $prompt,
-            'context' => $context,
-            'processed_prompt' => $prompt,
+        \Log::channel('gemini')->info('User prompt received', [
+            'prompt' => $request->prompt,
+            'ip' => $request->ip(),
         ]);
 
-        if ($isAccounting) {
-            $processedPrompt = $this->removeTriggerWord($prompt, $context);
-            $response = app(AccountingGeminiService::class)->processAccountingPrompt($processedPrompt);
-            
-            if (isset($response['type']) && $response['type'] === 'data_required') {
-                session()->put('pending_transaction', [
-                    'missing_data' => $response['missing_data'],
-                    'example_question' => $response['example_question']
-                ]);
-                
-                return $this->handleFollowUpQuestion($request, $response);
-            }
-            
-        } else {
-            $response = $this->geminiService->generateSimpleTextPrompt($prompt);
-        }
-    
-
+        $response = $this->geminiService->generateContent([
+            [
+                'parts' => [
+                    ['text' => $request->prompt]
+                ]
+            ]
+        ]);
+        
         if (isset($response['error'])) {
             \Log::channel('gemini')->error('Error in chat processing', [
                 'error' => $response['error'],
@@ -65,14 +47,21 @@ class ChatController extends Controller
 
             if ($request->header('HX-Request')) {
                 return response()->json([
-                    'error' => 'Gagal mendapatkan respons: '.Arr::get($response, 'error', 'Unknown error')
+                    'error' => 'Failed to get response: '.
+                        (is_array($response['error']) ? json_encode($response['error']) : $response['error']),
                 ], 422);
             }
 
             return redirect()->back()->withErrors([
-                'gemini_error' => 'Gagal mendapatkan respons: '.Arr::get($response, 'error', 'Unknown error')
+                'gemini_error' => 'Failed to get response: '.
+                    (is_array($response['error']) ? json_encode($response['error']) : $response['error']),
             ]);
         }
+
+        \Log::channel('gemini')->debug('Processed Gemini Response', [
+            'response_structure' => array_keys($response),
+            'content_exists' => isset($response['candidates'][0]['content']['parts'][0]['text']),
+        ]);
 
         $userMessage = [
             'sender' => 'user',
@@ -80,9 +69,12 @@ class ChatController extends Controller
             'avatar' => 'U',
         ];
 
+        // Panggil method extractResponseText untuk mendapatkan pesan bot
+        $botText = $this->geminiService->extractResponseText($response);
+
         $botMessage = [
             'sender' => 'bot',
-            'content' => Arr::get($response, 'candidates.0.content.parts.0.text', 'Tidak ada respons'),
+            'content' => $botText,
             'avatar' => 'B',
         ];
 
@@ -98,57 +90,5 @@ class ChatController extends Controller
         }
 
         return redirect()->route('dashboard');
-    }
-
-    protected function detectContext(string $prompt): ?string
-    {
-        foreach (config('chat.context_triggers') as $context => $trigger) {
-            if (str_starts_with(strtolower(trim($prompt)), strtolower($trigger))) {
-                return $context;
-            }
-        }
-        return null;
-    }
-
-    protected function removeTriggerWord(string $prompt, string $context): string
-    {
-        $trigger = config("chat.context_triggers.$context");
-        return preg_replace("/^$trigger\s*/i", '', $prompt);
-    }
-
-    protected function handleMissingData(Request $request, array $response)
-    {
-        $missingData = $response['missing_data'] ?? [];
-        $message = $response['message'] ?? 'Silakan lengkapi data berikut:';
-        
-        session()->flash('required_fields', $missingData);
-        
-        if ($request->header('HX-Request')) {
-            return response()->json([
-                'missing_data' => $missingData,
-                'message' => $message
-            ], 422);
-        }
-        
-        return redirect()->back()
-            ->withInput()
-            ->withErrors(['missing_data' => $message]);
-    }
-
-    protected function handleFollowUpQuestion(Request $request, array $response)
-    {
-        $message = [
-            'sender' => 'bot',
-            'content' => $response['missing_data']['guidance']."\n\n".$response['example_question'],
-            'avatar' => 'B',
-            'requires_input' => true,
-            'required_fields' => $response['missing_data']['fields']
-        ];
-
-        if ($request->header('HX-Request')) {
-            return view('partials.chat-message', ['messages' => [$message]]);
-        }
-
-        return redirect()->back()->with('bot_message', $message);
     }
 }

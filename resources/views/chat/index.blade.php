@@ -24,7 +24,7 @@
               :contentType="'text'"
               :avatar="$message['avatar']"
           >
-            {{ $message['content'] }}
+            {!! $message['content'] !!}
           </x-chat-bubble>
         @endforeach
 

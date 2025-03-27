@@ -21,7 +21,7 @@
         </svg>
     @endif
 
-    <div class="grow max-w-[90%] md:max-w-2xl w-full space-y-3 {{ $sender === 'user' ? 'text-right bg-gray-100 rounded-md py-2 px-2' : '' }}">
+    <div class="grow max-w-[90%] md:max-w-2xl w-full space-y-3 {{ $sender === 'user' ? 'text-right bg-gray-100 dark:bg-neutral-800 rounded-md py-2 px-2' : '' }}">
         <div class="space-y-3">
             @if($contentType === 'text')
                 <p class="text-sm text-gray-800 dark:text-white">
@@ -77,7 +77,7 @@
             @endif
         </div>
 
-        {{-- Action Buttons --}}
+        <!-- Action Button 
         @if($sender === 'bot')
         <div>
         <div class="sm:flex sm:justify-between">
@@ -108,6 +108,6 @@
               </div>
             </div>
         </div>
-        @endif
+        @endif -->
     </div>
 </li>

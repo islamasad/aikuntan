@@ -1,10 +1,15 @@
 <?php
+
 namespace App\Http\Controllers\Chat;
 
 use App\Http\Controllers\Controller;
-use App\Services\GeminiService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
+use App\Services\GeminiService;
+use Prism\Prism\ValueObjects\Messages\UserMessage;
+use Prism\Prism\ValueObjects\Messages\AssistantMessage;
+use Illuminate\Support\Facades\Log;
+use Prism\Prism\Enums\Provider;
+use Prism\Prism\Prism;
 
 class ChatController extends Controller
 {
@@ -17,8 +22,9 @@ class ChatController extends Controller
 
     public function index()
     {
+        $messages = session('chat_history', []);
         return view('chat.index', [
-            'messages' => session('chat_history', []),
+            'messages' => $this->convertMessagesToArray($messages),
         ]);
     }
 
@@ -26,69 +32,118 @@ class ChatController extends Controller
     {
         $request->validate(['prompt' => 'required|string']);
 
-        \Log::channel('gemini')->info('User prompt received', [
+        Log::channel('gemini')->info('User prompt received', [
             'prompt' => $request->prompt,
-            'ip' => $request->ip(),
+            'ip'     => $request->ip(),
         ]);
 
-        $response = $this->geminiService->generateContent([
-            [
-                'parts' => [
-                    ['text' => $request->prompt]
-                ]
-            ]
+        // Buat pesan pengguna
+        $userMessage = new UserMessage($request->prompt);
+
+        // Ambil riwayat chat dari session dan tambahkan pesan pengguna baru
+        $chatHistory = session('chat_history', []);
+        $chatHistory[] = $userMessage;
+
+        Log::channel('gemini')->info('Sending chat history to GeminiService', [
+            'chat_history' => $this->convertMessagesToArray($chatHistory)
         ]);
-        
-        if (isset($response['error'])) {
-            \Log::channel('gemini')->error('Error in chat processing', [
-                'error' => $response['error'],
+
+        try {
+            // Panggil GeminiService untuk menghasilkan respons berdasarkan message chain
+            $response = $this->geminiService->generate($chatHistory);
+            Log::channel('gemini')->info('Received response from GeminiService', [
+                'response' => $response
+            ]);
+        } catch (\Throwable $e) {
+            Log::channel('gemini')->error('Exception when calling GeminiService', [
+                'error'  => $e->getMessage(),
                 'prompt' => $request->prompt,
             ]);
+            $errorMessage = new AssistantMessage('Terjadi kesalahan, coba lagi!');
+            $messagesForView = $this->convertMessagesToArray([$userMessage, $errorMessage]);
 
             if ($request->header('HX-Request')) {
-                return response()->json([
-                    'error' => 'Failed to get response: '.
-                        (is_array($response['error']) ? json_encode($response['error']) : $response['error']),
-                ], 422);
+                return view('partials.chat-message', [
+                    'messages' => $messagesForView,
+                ]);
             }
-
             return redirect()->back()->withErrors([
-                'gemini_error' => 'Failed to get response: '.
-                    (is_array($response['error']) ? json_encode($response['error']) : $response['error']),
+                'gemini_error' => 'Failed to generate response.',
             ]);
         }
 
-        \Log::channel('gemini')->debug('Processed Gemini Response', [
-            'response_structure' => array_keys($response),
-            'content_exists' => isset($response['candidates'][0]['content']['parts'][0]['text']),
-        ]);
+        if (!isset($response['text']) || empty($response['text'])) {
+            Log::channel('gemini')->error('Empty response received from GeminiService', [
+                'response' => $response
+            ]);
+            $botMessage = new AssistantMessage('Tidak menerima balasan dari Gemini.');
+        } else {
+            $botMessage = new AssistantMessage($response['text']);
+        }
 
-        $userMessage = [
-            'sender' => 'user',
-            'content' => $request->prompt,
-            'avatar' => 'U',
-        ];
-
-        // Panggil method extractResponseText untuk mendapatkan pesan bot
-        $botText = $this->geminiService->extractResponseText($response);
-
-        $botMessage = [
-            'sender' => 'bot',
-            'content' => $botText,
-            'avatar' => 'B',
-        ];
-
-        $chatHistory = session('chat_history', []);
-        $chatHistory[] = $userMessage;
         $chatHistory[] = $botMessage;
         session(['chat_history' => $chatHistory]);
 
         if ($request->header('HX-Request')) {
+            $messagesForView = $this->convertMessagesToArray([$userMessage, $botMessage]);
             return view('partials.chat-message', [
-                'messages' => [$userMessage, $botMessage],
+                'messages' => $messagesForView,
             ]);
         }
 
-        return redirect()->route('dashboard');
+        return redirect()->route('chat.index');
     }
+
+    /**
+     * Helper untuk mengekstrak nilai konten dari objek pesan menggunakan Reflection.
+     */
+    protected function getMessageContent($message): string
+    {
+        try {
+            $reflection = new \ReflectionClass($message);
+            if ($reflection->hasProperty('content')) {
+                $prop = $reflection->getProperty('content');
+                $prop->setAccessible(true);
+                return $prop->getValue($message);
+            } elseif ($reflection->hasProperty('text')) {
+                $prop = $reflection->getProperty('text');
+                $prop->setAccessible(true);
+                return $prop->getValue($message);
+            }
+        } catch (\ReflectionException $e) {
+            Log::error('Reflection error:', ['error' => $e->getMessage()]);
+        }
+        return '';
+    }
+
+    /**
+     * Konversi objek pesan menjadi array agar view dapat mengaksesnya dengan notasi array.
+     */
+    protected function convertMessagesToArray(array $messages): array
+    {
+        return array_map(function ($message) {
+            $content = $this->getMessageContent($message);
+
+            if ($message instanceof UserMessage) {
+                return [
+                    'sender'  => 'user',
+                    'avatar'  => 'U',
+                    'content' => $content,
+                ];
+            } elseif ($message instanceof AssistantMessage) {
+                return [
+                    'sender'  => 'bot',
+                    'avatar'  => 'B',
+                    'content' => $content,
+                ];
+            }
+            return [
+                'sender'  => 'unknown',
+                'avatar'  => '?',
+                'content' => $content,
+            ];
+        }, $messages);
+    }
+
+
 }

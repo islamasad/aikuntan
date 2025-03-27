@@ -52,7 +52,7 @@ return new class extends Migration
             $table->index(['model_id', 'model_type']);
         });
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
+        Schema::connection('user_db')->create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
@@ -122,6 +122,12 @@ return new class extends Migration
 
             $table->index(['subscription_id', 'feature']);
         });
+
+        Schema::connection('user_db')->create('user_settings', function (Blueprint $table) {
+            $table->id(); // Auto-incrementing primary key
+            $table->foreignId('user_id')->constrained('users')->onUpdate('cascade')->onDelete('cascade'); // Foreign key to users
+            $table->enum('theme', ['light','dark'])->default('light'); 
+        });
     }
 
     /**
@@ -140,5 +146,6 @@ return new class extends Migration
         Schema::dropIfExists('subscriptions');
         Schema::dropIfExists('subscription_items');
         Schema::dropIfExists('subscription_usage');
+        Schema::dropIfExists('user_settings');
     }
 };

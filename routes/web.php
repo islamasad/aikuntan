@@ -3,6 +3,7 @@
 use App\Http\Controllers\Chat\ChatController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::get('/', function () {
     return view('welcome');
@@ -13,6 +14,7 @@ Route::post('/save-theme', function (Request $request) {
 
     return response()->json(['status' => 'Theme saved']);
 });
+
 
 // Route::get('/chat', function () {
 //    return view('chat');
@@ -25,7 +27,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/chat', [ChatController::class, 'index'])->name('dashboard');
     Route::post('/chat/ask', [ChatController::class, 'ask'])->name('chat.ask');
-
+    
 });
 
 require __DIR__.'/auth.php';

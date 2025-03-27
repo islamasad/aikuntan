@@ -10,13 +10,16 @@ Alpine.start();
 var themeToggleDarkIcon = document.getElementById("theme-toggle-dark-icon");
 var themeToggleLightIcon = document.getElementById("theme-toggle-light-icon");
 
+// Cek tema dari localStorage atau preferensi sistem
 if (
     localStorage.getItem("color-theme") === "dark" ||
     (!("color-theme" in localStorage) &&
         window.matchMedia("(prefers-color-scheme: dark)").matches)
 ) {
+    document.documentElement.classList.add("dark");
     themeToggleLightIcon.classList.remove("hidden");
 } else {
+    document.documentElement.classList.remove("dark");
     themeToggleDarkIcon.classList.remove("hidden");
 }
 
@@ -26,36 +29,24 @@ themeToggleBtn.addEventListener("click", function () {
     themeToggleDarkIcon.classList.toggle("hidden");
     themeToggleLightIcon.classList.toggle("hidden");
 
-    let theme = "light";
-    if (localStorage.getItem("color-theme")) {
-        if (localStorage.getItem("color-theme") === "light") {
-            document.documentElement.classList.add("dark");
-            localStorage.setItem("color-theme", "dark");
-            theme = "dark";
-        } else {
-            document.documentElement.classList.remove("dark");
-            localStorage.setItem("color-theme", "light");
-            theme = "light";
-        }
-    } else {
-        if (document.documentElement.classList.contains("dark")) {
-            document.documentElement.classList.remove("dark");
-            localStorage.setItem("color-theme", "light");
-            theme = "light";
-        } else {
-            document.documentElement.classList.add("dark");
-            localStorage.setItem("color-theme", "dark");
-            theme = "dark";
-        }
-    }
+    let theme = document.documentElement.classList.contains("dark") ? "light" : "dark";
+
+    // Ubah tema di localStorage dan class HTML
+    localStorage.setItem("color-theme", theme);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+
+    // Ambil CSRF token dari meta tag
+    let csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     // Kirim request AJAX ke Laravel untuk menyimpan preferensi tema
-    fetch('/save-theme', {
+    fetch('/update-theme', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({ theme: theme })
-    });
+    }).then(response => response.json())
+      .then(data => console.log("Theme updated:", data))
+      .catch(error => console.error("Error updating theme:", error));
 });

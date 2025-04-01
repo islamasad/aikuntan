@@ -10,21 +10,23 @@
           Welcome to ASADEV
         </h1>
         <p class="mt-3 text-gray-600 dark:text-neutral-400">
-          Your GEMINI AI-powered copilot
+          Your GEMINI AI-powered Accounting copilot
         </p>
       </div>
       <!-- End Title -->
       <div id="chat-container" class="dark" _="on htmx:afterSettle me.scrollTop = me.scrollHeight">
         <ul  id="chat-box" class="mt-16 space-y-5 dark:text-white">
-          @foreach($messages as $message)
-            <x-chat-bubble 
-                :sender="$message['sender']" 
-                :contentType="'text'"
-                :avatar="$message['avatar']"
-            >
-              {!! $message['content'] !!}
-            </x-chat-bubble>
-          @endforeach
+        @foreach($messages as $key => $message)
+    @if($key !== 0)
+        <x-chat-bubble 
+            :sender="$message['sender']" 
+            :contentType="'text'"
+        >
+            {!! $message['content'] !!}
+        </x-chat-bubble>
+    @endif
+@endforeach
+
 
           @if(session('errors'))
               <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-neutral-800">

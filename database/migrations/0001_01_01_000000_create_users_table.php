@@ -127,6 +127,7 @@ return new class extends Migration
             $table->id(); // Auto-incrementing primary key
             $table->foreignId('user_id')->constrained('users')->onUpdate('cascade')->onDelete('cascade'); // Foreign key to users
             $table->enum('theme', ['light','dark'])->default('light'); 
+            // timezone, date format, role, notification
         });
     }
 

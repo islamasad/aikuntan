@@ -2,14 +2,12 @@
 @props([
     'sender', // 'user' atau 'bot'
     'contentType', // 'text', 'code', 'media', 'table', 'voice'
-    'avatar',
-    // 'align', // 'left' atau 'right'
 ])
 
 <li class="max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 {{ $sender === 'user' ? 'flex-row-reverse' : 'justify-start' }}">
     @if($sender === 'user')
         <span class="shrink-0 inline-flex items-center justify-center size-[38px] rounded-full bg-gray-600">
-            <span class="text-sm font-medium text-white leading-none">{{ $avatar }}</span>
+            <span class="text-sm font-medium text-white leading-none">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
         </span>
     @else
         <svg class="shrink-0 size-[38px] rounded-full" width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">

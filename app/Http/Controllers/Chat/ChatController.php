@@ -5,19 +5,23 @@ namespace App\Http\Controllers\Chat;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Services\GeminiService;
+use App\Services\ChatHistoryService;
 use Prism\Prism\ValueObjects\Messages\UserMessage;
 use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Illuminate\Support\Facades\Log;
-use Prism\Prism\Enums\Provider;
-use Prism\Prism\Prism;
+use App\Traits\ConvertsMessages;
 
 class ChatController extends Controller
 {
-    protected GeminiService $geminiService;
+    use ConvertsMessages;
 
-    public function __construct(GeminiService $geminiService)
+    protected GeminiService $geminiService;
+    protected ChatHistoryService $chatHistoryService;
+
+    public function __construct(GeminiService $geminiService, ChatHistoryService $chatHistoryService)
     {
         $this->geminiService = $geminiService;
+        $this->chatHistoryService = $chatHistoryService;
     }
 
     public function index()
@@ -37,19 +41,19 @@ class ChatController extends Controller
             'ip'     => $request->ip(),
         ]);
 
-        // Buat pesan pengguna
         $userMessage = new UserMessage($request->prompt);
 
-        // Ambil riwayat chat dari session dan tambahkan pesan pengguna baru
-        $chatHistory = session('chat_history', []);
-        $chatHistory[] = $userMessage;
+        // Dapatkan chat history; base prompt akan ditambahkan jika history masih kosong
+        $chatHistory = $this->chatHistoryService->getHistory();
+
+        // Tambahkan pesan user ke chat history
+        $chatHistory = $this->chatHistoryService->addMessage($userMessage);
 
         Log::channel('gemini')->info('Sending chat history to GeminiService', [
             'chat_history' => $this->convertMessagesToArray($chatHistory)
         ]);
 
         try {
-            // Panggil GeminiService untuk menghasilkan respons berdasarkan message chain
             $response = $this->geminiService->generate($chatHistory);
             Log::channel('gemini')->info('Received response from GeminiService', [
                 'response' => $response
@@ -81,8 +85,8 @@ class ChatController extends Controller
             $botMessage = new AssistantMessage($response['text']);
         }
 
-        $chatHistory[] = $botMessage;
-        session(['chat_history' => $chatHistory]);
+        // Tambahkan pesan balasan dari bot ke chat history
+        $chatHistory = $this->chatHistoryService->addMessage($botMessage);
 
         if ($request->header('HX-Request')) {
             $messagesForView = $this->convertMessagesToArray([$userMessage, $botMessage]);
@@ -93,57 +97,4 @@ class ChatController extends Controller
 
         return redirect()->route('chat.index');
     }
-
-    /**
-     * Helper untuk mengekstrak nilai konten dari objek pesan menggunakan Reflection.
-     */
-    protected function getMessageContent($message): string
-    {
-        try {
-            $reflection = new \ReflectionClass($message);
-            if ($reflection->hasProperty('content')) {
-                $prop = $reflection->getProperty('content');
-                $prop->setAccessible(true);
-                return $prop->getValue($message);
-            } elseif ($reflection->hasProperty('text')) {
-                $prop = $reflection->getProperty('text');
-                $prop->setAccessible(true);
-                return $prop->getValue($message);
-            }
-        } catch (\ReflectionException $e) {
-            Log::error('Reflection error:', ['error' => $e->getMessage()]);
-        }
-        return '';
-    }
-
-    /**
-     * Konversi objek pesan menjadi array agar view dapat mengaksesnya dengan notasi array.
-     */
-    protected function convertMessagesToArray(array $messages): array
-    {
-        return array_map(function ($message) {
-            $content = $this->getMessageContent($message);
-
-            if ($message instanceof UserMessage) {
-                return [
-                    'sender'  => 'user',
-                    'avatar'  => 'U',
-                    'content' => $content,
-                ];
-            } elseif ($message instanceof AssistantMessage) {
-                return [
-                    'sender'  => 'bot',
-                    'avatar'  => 'B',
-                    'content' => $content,
-                ];
-            }
-            return [
-                'sender'  => 'unknown',
-                'avatar'  => '?',
-                'content' => $content,
-            ];
-        }, $messages);
-    }
-
-
 }

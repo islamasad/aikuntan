@@ -34,7 +34,7 @@ class ChatController extends Controller
 
     public function ask(Request $request)
     {
-        $request->validate(['prompt' => 'required|string']);
+        /* $request->validate(['prompt' => 'required|string']);
 
         Log::channel('gemini')->info('User prompt received', [
             'prompt' => $request->prompt,
@@ -95,6 +95,38 @@ class ChatController extends Controller
             ]);
         }
 
-        return redirect()->route('chat.index');
+        return redirect()->route('chat.index'); */
+
+        $request->validate(['prompt' => 'required|string']);
+        Log::channel('gemini')->info('User prompt received', [
+            'prompt' => $request->prompt,
+            'ip'     => $request->ip(),
+        ]);
+
+        try {
+            $userMessage = new UserMessage($request->prompt);
+
+            // Dapatkan chat history; base prompt akan ditambahkan jika history masih kosong
+            $chatHistory = $this->chatHistoryService->getHistory();
+
+            // Tambahkan pesan user ke chat history
+            $chatHistory = $this->chatHistoryService->addMessage($userMessage);
+    
+            if ($request->header('HX-Request')) {
+                return response()->json([
+                    'prompt' => $request->prompt,
+                    'stream_url' => route('chat.stream', [
+                        'prompt' => base64_encode($request->prompt)
+                    ])
+                ]);
+            }
+    
+            return redirect()->route('chat.index');
+        } catch (\Exception $e) {
+            Log::error('Chat error: '.$e->getMessage());
+            return response()->json([
+                'error' => 'Terjadi kesalahan sistem'
+            ], 500);
+        }
     }
 }

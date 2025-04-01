@@ -67,7 +67,7 @@ class GeminiService
             ->table('transactions')
             ->orderBy('created_at', 'desc')
             ->value('reference_number') ?? 'INV-' . date('Y') . '-0000',   
-            '{tips}' => 'Besok adalah Hari Raya Idul Fitri, 1 Syawal 1446 H/31 Maret 2025. Ucapkan Selamat Hari Raya Idul Fitri dan memberikan doa.',
+            '{tips}' => '',
         ];
 
         // Isi prompt mentah dari config

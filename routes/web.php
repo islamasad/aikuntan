@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Chat\ChatController;
+use App\Http\Controllers\Chat\ChatStreamController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/chat', [ChatController::class, 'index'])->name('dashboard');
     Route::post('/chat/ask', [ChatController::class, 'ask'])->name('chat.ask');
-    
+    Route::get('/chat/stream', [ChatStreamController::class, 'stream'])->name('chat.stream');
 });
 
 require __DIR__.'/auth.php';

@@ -1,4 +1,4 @@
-<x-app-layout class="dark">
+<x-app-layout>
   @include('partials.sidebar')
 
   <!-- Content -->
@@ -14,7 +14,7 @@
         </p>
       </div>
       <!-- End Title -->
-      <div id="chat-container" class="dark" _="on htmx:afterSettle me.scrollTop = me.scrollHeight">
+      <div id="chat-container" _="on htmx:afterSettle me.scrollTop = me.scrollHeight">
         <ul  id="chat-box" class="mt-16 space-y-5 dark:text-white">
         @foreach($messages as $key => $message)
     @if($key !== 0)
@@ -59,9 +59,10 @@
       <!-- Input -->
       <div class="relative dark:bg-neutral-900">
         <form 
+          id="chat-form"
           hx-post="{{ route('chat.ask') }}"
           hx-target="#chat-box"
-          hx-swap="beforeend"
+          hx-swap="none"
           hx-indicator="#loading-spinner"
         >
           @csrf
@@ -131,8 +132,7 @@
 
   <script>
     document.body.addEventListener('htmx:afterRequest', function(evt) {
-      // Pastikan event berasal dari form yang ingin di-reset
-      if (evt.detail.elt.tagName.toLowerCase() === 'form') {
+      if (evt.detail.elt.id === 'chat-form') {
         evt.detail.elt.reset();
       }
     });
@@ -143,7 +143,16 @@
     const observer = new MutationObserver(() => {
       chatContainer.scrollTop = chatContainer.scrollHeight;
     });
-    observer.observe(chatContainer, { childList: true });
+    observer.observe(chatContainer, { childList: true, subtree: true });
+
+    document.addEventListener('htmx:afterSwap', function(event) {
+    if (event.target.id === 'chat-box') {
+        setTimeout(() => {
+            event.target.scrollTop = event.target.scrollHeight;
+        }, 100); // Beri jeda kecil agar konten baru benar-benar ter-render
+    }
+    });
+
   </script>
 
   <script>
@@ -186,5 +195,94 @@
         }
       }
     });
+  </script>
+
+  <script>
+    document.addEventListener("htmx:afterRequest", function (event) {
+    // Pastikan respons berasal dari form chat
+    if (event.detail.elt.id === "chat-form") {
+        // Parse respons JSON yang dikirim dari /chat/ask
+        let response = JSON.parse(event.detail.xhr.responseText);
+        let decodedPrompt = response.prompt;
+        
+        // Tambahkan chat bubble untuk prompt pengguna (jika belum ada)
+        // Misalnya, jika Anda ingin menampilkan prompt sebagai chat bubble:
+        let userBubbleHTML = `
+          <li class="max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 flex-row-reverse">
+            <span class="shrink-0 inline-flex items-center justify-center size-[38px] rounded-full bg-gray-600">
+              <span class="text-sm font-medium text-white leading-none">${response.prompt.charAt(0).toUpperCase()}</span>
+            </span>
+            <div class="grow max-w-[90%] md:max-w-2xl w-full space-y-3 text-right bg-gray-100 dark:bg-neutral-800 rounded-md py-2 px-2">
+              <div class="space-y-3">
+                <p class="text-sm text-gray-800 dark:text-white">
+                  ${decodedPrompt}
+                </p>
+              </div>
+            </div>
+          </li>
+        `;
+        document.getElementById("chat-box").insertAdjacentHTML('beforeend', userBubbleHTML);
+        
+        // Inisiasi koneksi SSE dengan URL dari respons
+        let streamUrl = response.stream_url;
+        let eventSource = new EventSource(streamUrl);
+        let finalMessage = ""; // Untuk menggabungkan seluruh chunk
+        let botBubble = null; // Referensi elemen chat bubble bot yang sedang di-stream
+        let spinnerTimeout;
+
+        eventSource.onmessage = function (e) {
+            let data = JSON.parse(e.data);
+            if (!botBubble) {
+                    botBubble = document.createElement("li");
+                    botBubble.className = "max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 justify-start";
+                    botBubble.innerHTML = `
+                      <svg class="shrink-0 size-[38px] rounded-full" width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="38" height="38" rx="6" fill="#2563EB"></rect>
+                        <path d="M10 28V18.64C10 13.8683 14.0294 10 19 10C23.9706 10 28 13.8683 28 18.64C28 23.4117 23.9706 27.28 19 27.28H18.25" stroke="white" stroke-width="1.5"></path>
+                        <path d="M13 28V18.7552C13 15.5104 15.6863 12.88 19 12.88C22.3137 12.88 25 15.5104 25 18.7552C25 22 22.3137 24.6304 19 24.6304H18.25" stroke="white" stroke-width="1.5"></path>
+                        <ellipse cx="19" cy="18.6554" rx="3.75" ry="3.6" fill="white"></ellipse>
+                      </svg>
+                      <div class="grow max-w-[90%] md:max-w-2xl w-full space-y-3">
+                        <div class="space-y-3">
+                          <p class="text-sm text-gray-800 dark:text-white" id="bot-stream-content"></p>
+                          <div id="bot-stream-spinner">
+                            <svg id="loading-spinner" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="currentColor">
+                              <path opacity="0.2" fill-rule="evenodd" clip-rule="evenodd" d="M12 19C15.866 19 19 15.866 19 12C19 8.13401 15.866 5 12 5C8.13401 5 5 8.13401 5 12C5 15.866 8.13401 19 12 19ZM12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/>
+                              <path d="M2 12C2 6.47715 6.47715 2 12 2V5C8.13401 5 5 8.13401 5 12H2Z"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                    document.getElementById("chat-box").appendChild(botBubble);
+                }
+                
+                // Update konten chat bubble bot secara incremental
+                let botStreamContent = document.getElementById("bot-stream-content");
+                if (data.message) {
+                    finalMessage += data.message + " ";
+                    botStreamContent.innerHTML = finalMessage;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                    // Reset timeout setiap kali ada pesan baru
+                    clearTimeout(spinnerTimeout);
+                    spinnerTimeout = setTimeout(() => {
+                        document.getElementById('bot-stream-spinner')?.remove();
+                    }, 1000); // Hapus spinner 1 detik setelah pesan terakhir
+                }
+            
+        };
+
+        eventSource.onerror = function() {
+            document.getElementById('bot-stream-spinner')?.remove();
+            eventSource.close();
+        };
+
+        setTimeout(() => {
+            document.getElementById('bot-stream-spinner')?.remove();
+            eventSource.close();
+        }, 30000);
+    }
+});
+
   </script>
 </x-app-layout>

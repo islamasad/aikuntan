@@ -14,7 +14,7 @@
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
-        
+        <script src="https://unpkg.com/htmx-ext-sse@2.2.2"></script>
     </head>
     <body class="font-sans antialiased dark:bg-neutral-900">
         @include('components.loading')

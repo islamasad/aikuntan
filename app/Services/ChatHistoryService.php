@@ -38,7 +38,8 @@ class ChatHistoryService
     {
         $history = $this->getHistory();
         $history[] = $message;
-        session(['chat_history' => $history]);
+        session()->put('chat_history', $history);
+        session()->save();
         return $history;
     }
 

@@ -4,7 +4,7 @@
     'contentType', // 'text', 'code', 'media', 'table', 'voice'
 ])
 
-<li class="max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 {{ $sender === 'user' ? 'flex-row-reverse' : 'justify-start' }}">
+<li class="max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 animate-chatMessageEnter {{ $sender === 'user' ? 'flex-row-reverse' : 'justify-start' }}">
     @if($sender === 'user')
         <span class="shrink-0 inline-flex items-center justify-center size-[38px] rounded-full bg-gray-600">
             <span class="text-sm font-medium text-white leading-none">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>

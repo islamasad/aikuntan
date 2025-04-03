@@ -251,7 +251,7 @@
                   
               botBubble = document.createElement("li");
               botBubble.id = bubbleId;
-              botBubble.className = "max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 justify-start";
+              botBubble.className = "max-w-4xl py-2 px-4 sm:px-6 lg:px-8 mx-auto flex gap-x-2 sm:gap-x-4 justify-start animate-chatMessageEnter";
               botBubble.innerHTML = `
                 <svg class="shrink-0 size-[38px] rounded-full" width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect width="38" height="38" rx="6" fill="#2563EB"></rect>

@@ -11,7 +11,7 @@ Ide aplikasi ini adalah untuk membuat pembukuan menggunakan AI (GEMINI AI), memb
 Aplikasi ini diharapkan bisa membantu pemula membuat sekaligus belajar membuat akuntansi dengan bantuan AI.
 
 Progress:
-Create Project
+Create Project<br>
 Prism Package
 AI Prompt UI (Preline UI)
 Gemini AI integration

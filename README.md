@@ -10,12 +10,12 @@
 Ide aplikasi ini adalah untuk membuat pembukuan menggunakan AI (GEMINI AI), membuat dan merencanakan akun, melakukan input transaksi menggunakan prompt. 
 Aplikasi ini diharapkan bisa membantu pemula membuat sekaligus belajar membuat akuntansi dengan bantuan AI.
 
-Progress:
+Progress:<br>
 Create Project<br>
-Prism Package
-AI Prompt UI (Preline UI)
-Gemini AI integration
-Stream Response Gemini AI
-Config base prompt
+Prism Package<br>
+AI Prompt UI (Preline UI)<br>
+Gemini AI integration<br>
+Stream Response Gemini AI<br>
+Config base prompt<br>
 (to be continued)
 
